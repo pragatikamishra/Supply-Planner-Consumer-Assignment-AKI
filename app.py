@@ -1,19 +1,24 @@
-"""AKI Sales Assistant: a chat page that answers questions about the sales database."""
+"""SalesPilot: a chat page that answers questions about AKI sales data."""
 import streamlit as st
 
 from python.chatbot import ask
 
-st.set_page_config(page_title="AKI Sales Assistant", page_icon="💬")
-st.title("AKI Sales Assistant")
-st.caption("Ask about 2024 sales. The AI runs on this computer, so the data never leaves it.")
+st.set_page_config(page_title="SalesPilot", page_icon="📈")
+st.title("📈 SalesPilot")
+st.subheader("Turn data into understandable answers")
+st.caption(
+    "Ask about AKI's 2024 sales, products and customers. "
+    "The AI runs on this computer, so the data never leaves it."
+)
 
 with st.sidebar:
     st.header("Try asking")
     st.markdown(
-        "- Which 5 customers bought the most?\n"
-        "- What was the gross margin % in April?\n"
+        "- Show units sold by month\n"
+        "- Which 10 products sold the most units?\n"
         "- Which division has the highest return rate?\n"
-        "- Show total sales by month"
+        "- Which 5 customers bought the most?\n"
+        "- What was the gross margin % in April?"
     )
 
 # The chat history lives in session_state, so it survives each page refresh.
@@ -31,7 +36,8 @@ def number_formats(table):
 
 def show(message):
     """Draw one chat bubble, plus the SQL and data behind an answer."""
-    with st.chat_message(message["role"]):
+    avatar = "📈" if message["role"] == "assistant" else None
+    with st.chat_message(message["role"], avatar=avatar):
         st.write(message["content"])
         if "sql" in message:
             with st.expander("How I got this answer"):
@@ -46,13 +52,13 @@ def show(message):
 for message in st.session_state.messages:
     show(message)
 
-question = st.chat_input("Ask about sales, brands, customers...")
+question = st.chat_input("Ask SalesPilot about sales, products, customers...")
 if question:
     user_message = {"role": "user", "content": question}
     st.session_state.messages.append(user_message)
     show(user_message)
 
-    with st.spinner("Thinking..."):
+    with st.spinner("SalesPilot is thinking..."):
         try:
             reply = ask(question)
             bot_message = {

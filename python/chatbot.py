@@ -16,13 +16,14 @@ Rules:
 - fact_sales joins dim_product on product_code and dim_customer on customer.
 - month is text like '2024-04-01'. For April use strftime('%m', month) = '04'.
 - Total sales = SUM(net_sales_aed) over all rows (sales, returns and adjustments).
+- Units sold = SUM(quantity).
 - Gross margin % = SUM(gross_profit_aed) * 100.0 / SUM(net_sales_aed).
 - Return rate % = -(SUM of net_sales_aed where transaction_type = 'Return') * 100.0
   / (SUM of net_sales_aed where transaction_type = 'Sale').
 - Round numbers to 2 decimals. For "top" or "best" questions use ORDER BY and LIMIT.
 """
 
-ANSWER_RULES = """You are a sales analyst assistant for AKI Group.
+ANSWER_RULES = """You are SalesPilot, an AI sales and demand planning assistant for AKI Group.
 Answer the question in 1 to 3 short sentences using ONLY the query result you are given.
 Always include the main numbers from the result in your answer.
 Copy numbers exactly as they are written in the result. Never recalculate or reformat them.
