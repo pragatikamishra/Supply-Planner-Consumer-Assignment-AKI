@@ -1,0 +1,34 @@
+{
+    "name": "AKI Group",
+    "dataColors": ["#002D73", "#BD9E6D", "#4A6FA5", "#8FA9CF", "#D8C3A0", "#1F4E8C", "#6B7B93", "#B8C7E0"],
+    "background": "#FFFFFF",
+    "foreground": "#002D73",
+    "tableAccent": "#BD9E6D",
+    "good": "#2E8B57",
+    "neutral": "#BD9E6D",
+    "bad": "#C0392B",
+    "maximum": "#002D73",
+    "center": "#8FA9CF",
+    "minimum": "#E3EAF6",
+    "textClasses": {
+        "title": { "fontFace": "Segoe UI Semibold", "color": "#002D73" },
+        "header": { "fontFace": "Segoe UI Semibold", "color": "#002D73" },
+        "label": { "fontFace": "Segoe UI", "color": "#3A4A63" },
+        "callout": { "fontFace": "Segoe UI Semibold", "color": "#002D73" }
+    },
+    "visualStyles": {
+        "page": { "*": { "background": [{ "color": { "solid": { "color": "#F2F6FF" } }, "transparency": 0 }] } },
+                "*": { "*": {
+            "background": [{ "show": false }],
+            "border": [{ "show": false }],
+            "dropShadow": [{ "show": false }]
+        } },
+        "card": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } },
+        "cardVisual": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } },
+        "multiRowCard": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } },
+        "slicer": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } },
+        "advancedSlicerVisual": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } },
+        "textbox": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } },
+        "actionButton": { "*": { "background": [{ "show": false }], "dropShadow": [{ "show": false }], "border": [{ "show": false }] } }
+    }
+}
