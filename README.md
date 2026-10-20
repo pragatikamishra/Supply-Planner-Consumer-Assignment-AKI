@@ -72,3 +72,39 @@ A chat page where anyone can ask questions about the sales data in plain English
 | `python/chatbot.py`      | Question -> SQL -> answer                      |
 | `python/chatbot_db.py`   | Describes the tables and runs read-only SQL    |
 | `.streamlit/config.toml` | AKI colours, localhost only, no usage tracking |
+
+## Architecture
+
+```mermaid
+flowchart LR
+    A["Google Sheets<br/>sales, product, customer"] -->|extract.py| B["data/raw<br/>CSV, untouched"]
+    B -->|transform.py| C["data/cleaned<br/>star schema CSV"]
+    B -.->|8 bad rows| R["data/rejected<br/>with reason"]
+    C -->|load.py| D[("SQLite<br/>data/sales.db")]
+    D -->|ODBC| E["Power BI dashboard"]
+    D -->|read-only SQL| F["AI chatbot<br/>Ollama + Streamlit"]
+```
+
+One pipeline feeds both the dashboard and the chatbot, so they always show the same numbers.
+
+## Power BI dashboard
+
+File: `powerbi/sales_dashboard.pbix`, themed in AKI colours (`powerbi/aki_theme.json`).
+
+| Page | What it shows |
+|---|---|
+| Overview | KPI cards (sales, gross profit, margin %, return rate %, customers), monthly sales trend with UAE holidays and retail seasons, MoM growth |
+| Products | Sales by division, top 10 products, brand scatter (sales vs margin) grouped into Star / Volume driver / Hidden gem / Question mark |
+| Customers | Sales by trade type and channel, online vs offline split, return rate by trade type, top 10 customers |
+
+**Key measures (DAX):** Total Sales, Gross Profit, Gross Margin %, Return Rate %, MoM Growth %, Top 10 Customer Share %, Brand Group.
+
+## Key insights (2024)
+
+- **AED 441.89M** net sales at a **24.41%** gross margin; returns are 1.21% of sales.
+- **April is the weakest month** (-24.7% vs March) during Ramadan and Eid Al Fitr; sales recover +44% in May and **peak in September**.
+- The **two biggest brands** (Brand 16 at 91.78M and Brand 15 at 62.75M) are volume drivers with only 15-19% margin.
+- **Product P015 sells below cost** (-0.61% margin), and **P105 has an 8.7% return rate**, about 7x the average.
+- **Automotive** sells about 22M at almost 0% margin, while **Durable Goods** earns about 39%.
+- **Customer concentration:** the top 10 customers make up 35.5% of sales; Customer 219 alone is 29.57M.
+- **Data quality note:** some E-Commerce customers have no Online/Offline label, so the online share is understated.
