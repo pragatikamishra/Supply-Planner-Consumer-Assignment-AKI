@@ -1,0 +1,14 @@
+[theme]
+primaryColor = "#002D73"
+backgroundColor = "#FFFFFF"
+secondaryBackgroundColor = "#F2F6FF"
+textColor = "#002D73"
+
+[server]
+address = "localhost"
+
+[browser]
+gatherUsageStats = false
+
+[client]
+toolbarMode = "minimal"
