@@ -1,11 +1,16 @@
 """Chatbot brain: turns a question into SQL, runs it, and explains the result."""
 import re
+from pathlib import Path
 
 import ollama
+import pandas as pd
 
 from python.chatbot_db import get_schema, run_query
 
 MODEL = "qwen2.5:7b"
+MODEL_OPTIONS = {"temperature": 0, "num_ctx": 4096}  # 0 = same answer each time; 4096 = reading window
+KEEP_ALIVE = "1h"  # keep the model in memory for an hour, so it doesn't reload
+CONTEXT_PATH = Path("docs/business_context.md")
 
 SQL_RULES = """You write SQLite queries for the sales database of a UAE company (year 2024, money in AED).
 
@@ -21,14 +26,46 @@ Rules:
 - Return rate % = -(SUM of net_sales_aed where transaction_type = 'Return') * 100.0
   / (SUM of net_sales_aed where transaction_type = 'Sale').
 - Round numbers to 2 decimals. For "top" or "best" questions use ORDER BY and LIMIT.
+- Never add WHERE filters the question did not ask for.
+- For "why" or "how" questions, break the numbers down by customer, month or transaction_type
+  and show net sales, cost of sales and gross margin % (or return rate %) for each part.
 """
 
 ANSWER_RULES = """You are SalesPilot, an AI sales and demand planning assistant for AKI Group.
-Answer the question in 1 to 3 short sentences using ONLY the query result you are given.
-Always include the main numbers from the result in your answer.
+Answer in up to 5 short sentences, or a short bullet list when asked for findings.
+Take numbers ONLY from the query result or from the Key findings in the business context.
+Always include the main numbers.
 Copy numbers exactly as they are written in the result. Never recalculate or reformat them.
 Numbers ending in M are millions and K are thousands; money is in AED.
-If the result is empty, say that no data was found."""
+For "why" or "how" questions, use the business context below to explain what the numbers mean
+and end with one practical suggestion for a planner.
+Only give reasons that apply to the SAME product, customer or month being asked about.
+Never borrow a fact from another product (P015's below-cost problem does not apply to P105).
+Say "sold below cost" only if the gross margin is negative.
+If the question asks for findings, insights, a summary, recommendations or how the data
+was prepared, answer from the business context.
+If neither the query result nor the business context has the answer, say you don't know.
+
+Business context:
+{context}"""
+
+
+REWRITE_RULES = """You rewrite follow-up questions so they make sense on their own.
+Use the conversation to fill in what the user means (product, brand, customer, month or measure).
+If the question already makes sense on its own, return it unchanged.
+Reply with the rewritten question only."""
+
+
+def load_business_context():
+    """Read the dashboard findings file, so the AI can explain "why"."""
+    if CONTEXT_PATH.exists():
+        return CONTEXT_PATH.read_text(encoding="utf-8")
+    return "No extra context available."
+
+
+def warm_up():
+    """Load the model into memory once, so the first question isn't slow."""
+    ollama.generate(model=MODEL, prompt="", options=MODEL_OPTIONS, keep_alive=KEEP_ALIVE)
 
 
 def ask_model(system, user):
@@ -39,7 +76,8 @@ def ask_model(system, user):
             {"role": "system", "content": system},
             {"role": "user", "content": user},
         ],
-        options={"temperature": 0},  # 0 = same question, same answer
+        options=MODEL_OPTIONS,
+        keep_alive=KEEP_ALIVE,
     )
     return response["message"]["content"].strip()
 
@@ -59,6 +97,8 @@ def format_number(value):
 
 def format_result(result):
     """Turn the result table into text with readable numbers for the AI."""
+    if result.empty:
+        return "(no query result)"
     readable = result.copy()
     for column in readable.columns:
         readable[column] = readable[column].map(format_number)
@@ -73,8 +113,22 @@ def extract_sql(text):
     return text.strip()
 
 
-def ask(question):
+def make_standalone(question, history):
+    """Turn a follow-up like "and in May?" into a full question, using the chat so far."""
+    if not history:
+        return question
+    conversation = "\n".join(
+        f"{turn['role']}: {turn['content'][:500]}" for turn in history[-6:]
+    )
+    return ask_model(
+        REWRITE_RULES,
+        f"Conversation so far:\n{conversation}\n\nFollow-up question: {question}",
+    )
+
+
+def ask(question, history=None):
     """Answer a question: AI writes SQL -> Python runs it -> AI explains the result."""
+    question = make_standalone(question, history)
     system = SQL_RULES.replace("{schema}", get_schema())
     sql = extract_sql(ask_model(system, question))
     try:
@@ -86,13 +140,18 @@ def ask(question):
             f"It failed with this error: {error}\nWrite a corrected query."
         )
         sql = extract_sql(ask_model(system, retry))
-        result = run_query(sql)
+        try:
+            result = run_query(sql)
+        except Exception:
+            # Still failing: answer from the business context alone.
+            sql = "-- No query: answered from the dashboard findings"
+            result = pd.DataFrame()
 
     answer = ask_model(
-        ANSWER_RULES,
+        ANSWER_RULES.replace("{context}", load_business_context()),
         f"Question: {question}\n\nQuery result:\n{format_result(result)}",
     )
-    return {"sql": sql, "result": result, "answer": answer}
+    return {"question": question, "sql": sql, "result": result, "answer": answer}
 
 
 if __name__ == "__main__":
