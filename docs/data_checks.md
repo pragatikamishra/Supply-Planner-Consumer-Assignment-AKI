@@ -1,4 +1,3 @@
-
 # Data checks
 
 I ran `python -m python.profile_data`, which measures every column of the raw files.
@@ -76,3 +75,10 @@ No.
   "Modern Trade - Offline") and look-alikes ("Modern Trade" vs "Modern Trade - Offline",
   "E-Commerce" vs "E-Commerce-Online").
 - Sales channel has 13 labels, all in CAPITALS, including code-like names (CONTRACTUAL5, CONTRACTUAL6).
+
+## External data: UAE 2024 calendar
+
+- Public holidays: https://www.talentmate.com/articles/uae-public-holidays-2024-complete-list
+- Retail seasons (Ramadan, Dubai Shopping Festival, summer, back to school): general knowledge, approximate dates
+- Used to label months in Power BI (dim_date[Public Holiday], dim_date[Retail Season]).
+  Shows timing only, not cause. Islamic dates shift about 11 days each year.
