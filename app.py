@@ -1,53 +1,18 @@
 """SalesPilot: a chat page that answers questions about AKI sales data."""
-import json
-from pathlib import Path
-
-import pandas as pd
 import streamlit as st
 
 from python import extract, load, transform
-from python.chatbot import RUNS_LOCALLY, ask, warm_up
+from python.chatbot import GROQ_API_KEY, ask
 from python.config import DB_PATH
-
-CHATS_FILE = Path("chats/history.json")  # saved chats, so they survive a restart
 
 st.set_page_config(page_title="SalesPilot", page_icon="📈")
 
 
-def load_chats():
-    """Read saved chats from disk; result tables are turned back into DataFrames."""
-    if not RUNS_LOCALLY or not CHATS_FILE.exists():
-        return []  # online, every visitor starts with their own empty chat list
-    chats = json.loads(CHATS_FILE.read_text(encoding="utf-8"))
-    for chat in chats:
-        for message in chat:
-            if "result" in message:
-                message["result"] = pd.DataFrame(message["result"])
-    return chats
-
-
-def save_chats():
-    """Write all chats to disk; result tables are stored as plain rows."""
-    if not RUNS_LOCALLY:
-        return  # online, chats stay private to each visitor's session
-    saved = []
-    for chat in st.session_state.chats:
-        if not chat:
-            continue
-        saved.append([
-            {**m, "result": json.loads(m["result"].to_json(orient="records"))}
-            if "result" in m else m
-            for m in chat
-        ])
-    CHATS_FILE.parent.mkdir(exist_ok=True)
-    CHATS_FILE.write_text(json.dumps(saved, indent=1), encoding="utf-8")
-
-
 # All chats live in session_state: a list of chats, each chat a list of messages.
-# The app always opens on a fresh, empty chat; old chats are in the sidebar.
+# Each visitor has their own chats, so nobody sees anyone else's questions.
 if "chats" not in st.session_state:
-    st.session_state.chats = load_chats() + [[]]
-    st.session_state.current = len(st.session_state.chats) - 1
+    st.session_state.chats = [[]]
+    st.session_state.current = 0
 
 
 SUGGESTED_QUESTIONS = [
@@ -116,31 +81,19 @@ def prepare_data():
     return True
 
 
-@st.cache_resource
-def load_model():
-    """Runs once when the app starts: loads the AI model into memory."""
-    warm_up()
-    return True
-
-
 st.title("📈 SalesPilot")
 st.subheader("Turn data into understandable answers")
-if RUNS_LOCALLY:
-    st.caption(
-        "Ask about AKI's 2024 sales, products and customers. "
-        "The AI runs on this computer, so the data never leaves it."
-    )
-else:
-    st.caption(
-        "Ask about AKI's 2024 sales, products and customers. "
-        "This online demo uses a cloud AI model (Groq); the full version runs locally."
-    )
+st.caption(
+    "Ask about AKI's 2024 sales, products and customers. "
+    "Answers come from the same database as the Power BI dashboard."
+)
+
+if not GROQ_API_KEY:
+    st.error("No Groq API key found. Add GROQ_API_KEY to .streamlit/secrets.toml and restart.")
+    st.stop()
 
 with st.spinner("Preparing the sales data (first start only, about 20 seconds)..."):
     prepare_data()
-
-with st.spinner("Loading SalesPilot's AI model..."):
-    load_model()
 
 messages = st.session_state.chats[st.session_state.current]
 
@@ -198,7 +151,6 @@ if question:
                 "content": f"Sorry, I couldn't answer that. Try rephrasing it. ({error})",
             }
     messages.append(bot_message)
-    save_chats()
     show(bot_message)
     if len(messages) == 2:
         st.rerun()  # first answer in a new chat: refresh so it appears in the sidebar

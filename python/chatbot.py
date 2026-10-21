@@ -1,27 +1,31 @@
 """Chatbot brain: turns a question into SQL, runs it, and explains the result."""
 import os
 import re
+import tomllib
 from pathlib import Path
 
-import ollama
 import pandas as pd
 import requests
 
 from python.chatbot_db import get_schema, run_query
 
-# Which AI to use: with a Groq key (the online app) use Groq's cloud model,
-# without one (this laptop) use the local Ollama model.
-GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
-RUNS_LOCALLY = not GROQ_API_KEY
-
-MODEL = "qwen2.5:7b"
-MODEL_OPTIONS = {"temperature": 0, "num_ctx": 4096}  # 0 = same answer each time; 4096 = reading window
-KEEP_ALIVE = "1h"  # keep the model in memory for an hour, so it doesn't reload
-
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 GROQ_MODEL = os.environ.get("GROQ_MODEL", "openai/gpt-oss-120b")
+SECRETS_PATH = Path(".streamlit/secrets.toml")  # holds the key on this laptop, never committed
 
 CONTEXT_PATH = Path("docs/business_context.md")
+
+
+def load_groq_key():
+    """Find the Groq key: Streamlit Cloud passes it as an environment variable,
+    on this laptop it is read from .streamlit/secrets.toml."""
+    key = os.environ.get("GROQ_API_KEY")
+    if not key and SECRETS_PATH.exists():
+        key = tomllib.loads(SECRETS_PATH.read_text(encoding="utf-8")).get("GROQ_API_KEY")
+    return key
+
+
+GROQ_API_KEY = load_groq_key()
 
 SQL_RULES = """You write SQLite queries for the sales database of a UAE company (year 2024, money in AED).
 
@@ -74,28 +78,14 @@ def load_business_context():
     return "No extra context available."
 
 
-def warm_up():
-    """Load the model into memory once, so the first question isn't slow."""
-    if not RUNS_LOCALLY:
-        return  # Groq's cloud model is always loaded
-    ollama.generate(model=MODEL, prompt="", options=MODEL_OPTIONS, keep_alive=KEEP_ALIVE)
-
-
 def ask_model(system, user):
-    """Send one message to the AI (local Ollama or Groq) and return its reply text."""
+    """Send one message to the Groq model and return its reply text."""
+    if not GROQ_API_KEY:
+        raise RuntimeError("No Groq API key found. Add GROQ_API_KEY to .streamlit/secrets.toml.")
     messages = [
         {"role": "system", "content": system},
         {"role": "user", "content": user},
     ]
-    if RUNS_LOCALLY:
-        response = ollama.chat(
-            model=MODEL,
-            messages=messages,
-            options=MODEL_OPTIONS,
-            keep_alive=KEEP_ALIVE,
-        )
-        return response["message"]["content"].strip()
-
     response = requests.post(
         GROQ_URL,
         headers={"Authorization": f"Bearer {GROQ_API_KEY}"},
@@ -179,7 +169,7 @@ def ask(question, history=None):
 
 
 if __name__ == "__main__":
-    print("Using:", f"Ollama ({MODEL})" if RUNS_LOCALLY else f"Groq ({GROQ_MODEL})")
+    print("Using:", f"Groq ({GROQ_MODEL})")
     reply = ask("Which 3 brands had the highest total sales?")
     print("SQL used:")
     print(reply["sql"])

@@ -40,9 +40,11 @@ Then open `powerbi/sales_dashboard.pbix` and click Refresh.
 A chat page where anyone can ask questions about the sales data in plain English, for example
 *"Which 5 customers bought the most?"* or *"What was the gross margin % in April?"*
 
+**Try it:** https://aki-salespilot.streamlit.app (also opens from the **Ask SalesPilot** button in the dashboard)
+
 **How it works**
 
-1. The question goes to a local AI model (**Qwen 2.5 7B via Ollama**) together with the database schema
+1. The question goes to an AI model (**GPT-OSS 120B on Groq**) together with the database schema
    and the business rules (the same formulas as the Power BI measures).
 2. The AI writes a SQL query. Python runs it on `data/sales.db`, **the same database Power BI uses**,
    so the chatbot and the dashboard always agree.
@@ -53,18 +55,20 @@ A chat page where anyone can ask questions about the sales data in plain English
 
 | Choice                                              | Why                                                                 |
 | --------------------------------------------------- | ------------------------------------------------------------------- |
-| Local model (Ollama)                                | Free, works offline, and company data never leaves the machine      |
+| Hosted model on Groq (free tier)                    | Nothing to install for reviewers; fast answers                      |
+| API key kept in Streamlit secrets, not in the code  | The key never reaches GitHub                                        |
 | Read-only database connection, `SELECT` only      | The AI can never change or delete data                              |
-| Python formats the numbers, the AI only copies them | Small AI models make mistakes when converting numbers (e.g. 91.78M) |
+| Python formats the numbers, the AI only copies them | AI models make mistakes when converting numbers (e.g. 91.78M)       |
 | One automatic retry with the error message          | The AI can fix its own SQL mistakes                                 |
 | `temperature = 0`                                 | The same question gives the same answer                             |
 
 **Run it**
 
-1. Install Ollama from [ollama.com](https://ollama.com) and download the model: `ollama pull qwen2.5:7b`
+1. Get a free API key at [console.groq.com](https://console.groq.com) and save it in
+   `.streamlit/secrets.toml` (gitignored) as `GROQ_API_KEY = "gsk_..."`
 2. Activate the venv and install the libraries: `pip install -r requirements.txt`
-3. Run the pipeline once so `data/sales.db` exists: `python main.py`
-4. Start the chat page: `streamlit run app.py`, then open http://localhost:8501
+3. Start the chat page: `streamlit run app.py`, then open http://localhost:8501
+   (if `data/sales.db` is missing, the app runs the pipeline first)
 
 | File                       | Role                                           |
 | -------------------------- | ---------------------------------------------- |
@@ -82,7 +86,7 @@ flowchart LR
     B -.->|8 bad rows| R["data/rejected<br/>with reason"]
     C -->|load.py| D[("SQLite<br/>data/sales.db")]
     D -->|ODBC| E["Power BI dashboard"]
-    D -->|read-only SQL| F["AI chatbot<br/>Ollama + Streamlit"]
+    D -->|read-only SQL| F["AI chatbot<br/>Groq + Streamlit"]
 ```
 
 One pipeline feeds both the dashboard and the chatbot, so they always show the same numbers.
