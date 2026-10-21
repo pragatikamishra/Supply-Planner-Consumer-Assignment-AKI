@@ -1,11 +1,14 @@
-"""Run the whole pipeline: python main.py"""
+"""Run the whole pipeline: python main.py  (add --no-dashboard to skip opening Power BI)"""
 import logging
+import os
 import sys
 import time
 from datetime import datetime
 from pathlib import Path
 
 from python import extract, transform, load
+
+DASHBOARD = Path("powerbi/sales_dashboard.pbix")
 
 # Every run writes its own log file, e.g. logs/pipeline_20241020_0800.log
 LOG_DIR = Path("logs")
@@ -29,6 +32,17 @@ def run_stage(name, func, *args):
     return result
 
 
+def open_dashboard():
+    """Open the Power BI report, like double-clicking it (Windows only)."""
+    if "--no-dashboard" in sys.argv or os.name != "nt":
+        return  # skipped for scheduled runs and on servers without Power BI
+    if not DASHBOARD.exists():
+        log.warning("Dashboard not found at %s", DASHBOARD)
+        return
+    log.info("Opening %s", DASHBOARD)
+    os.startfile(DASHBOARD.resolve())
+
+
 def main():
     log.info("Pipeline run started")
     try:
@@ -39,6 +53,7 @@ def main():
         log.exception("Pipeline failed")
         sys.exit(1)  # an error code, so a scheduler knows the run failed
     log.info("Pipeline run succeeded")
+    open_dashboard()
 
 
 if __name__ == "__main__":
